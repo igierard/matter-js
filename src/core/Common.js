@@ -177,6 +177,10 @@ module.exports = Common;
      * @return {boolean} True if the object is a HTMLElement, otherwise false
      */
     Common.isElement = function(obj) {
+        //webworker check
+        if (typeof HTMLElement === 'undefined') {
+            return false;
+        }
         return obj instanceof HTMLElement;
     };
 
@@ -253,11 +257,12 @@ module.exports = Common;
      * @return {number} the current timestamp
      */
     Common.now = function() {
-        if (window.performance) {
-            if (window.performance.now) {
-                return window.performance.now();
-            } else if (window.performance.webkitNow) {
-                return window.performance.webkitNow();
+        //not prefixing with window so webwork still works
+        if (performance) {
+            if (performance.now) {
+                return performance.now();
+            } else if (performance.webkitNow) {
+                return performance.webkitNow();
             }
         }
 
