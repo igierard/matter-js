@@ -1,5 +1,5 @@
 /**
-* matter-js 0.13.0 by @liabru 2017-07-06
+* matter-js 0.13.0 by @liabru 2017-09-18
 * http://brm.io/matter-js/
 * License MIT
 */
@@ -2219,7 +2219,7 @@ var Common = _dereq_('../core/Common');
      * @param {boolean} forceUpdate
      */
     Grid.update = function(grid, bodies, engine, forceUpdate) {
-        var i, col, row,
+        var i, iLen, col, row,
             world = engine.world,
             buckets = grid.buckets,
             bucket,
@@ -2227,7 +2227,9 @@ var Common = _dereq_('../core/Common');
             gridChanged = false;
 
 
-        for (i = 0; i < bodies.length; i++) {
+        var newRegion = {};
+
+        for (i = 0, iLen = bodies.length; i < iLen; i++) {
             var body = bodies[i];
 
             if (body.isSleeping && !forceUpdate)
@@ -2238,7 +2240,7 @@ var Common = _dereq_('../core/Common');
                 || body.bounds.max.y < world.bounds.min.y || body.bounds.min.y > world.bounds.max.y)
                 continue;
 
-            var newRegion = _getRegion(grid, body);
+            newRegion = _getRegion(grid, body);
 
             // if the body has changed grid region
             if (!body.region || newRegion.id !== body.region.id || forceUpdate) {
@@ -2253,7 +2255,7 @@ var Common = _dereq_('../core/Common');
                 // iterate over the union of both regions
                 for (col = union.startCol; col <= union.endCol; col++) {
                     for (row = union.startRow; row <= union.endRow; row++) {
-                        bucketId = _getBucketId(col, row);
+                        bucketId = 'C' + col + 'R' + row;
                         bucket = buckets[bucketId];
 
                         var isInsideNewRegion = (col >= newRegion.startCol && col <= newRegion.endCol
@@ -2263,17 +2265,15 @@ var Common = _dereq_('../core/Common');
                                                 && row >= body.region.startRow && row <= body.region.endRow);
 
                         // remove from old region buckets
-                        if (!isInsideNewRegion && isInsideOldRegion) {
-                            if (isInsideOldRegion) {
-                                if (bucket)
-                                    _bucketRemoveBody(grid, bucket, body);
-                            }
+                        if (!isInsideNewRegion && isInsideOldRegion && bucket) {
+                            _bucketRemoveBody(grid, bucket, body);                      
                         }
 
                         // add to new region buckets
                         if (body.region === newRegion || (isInsideNewRegion && !isInsideOldRegion) || forceUpdate) {
-                            if (!bucket)
-                                bucket = _createBucket(buckets, bucketId);
+                            if (!bucket){
+                                bucket = buckets[bucketId] = [];
+                            }
                             _bucketAddBody(grid, bucket, body);
                         }
                     }
@@ -2309,15 +2309,17 @@ var Common = _dereq_('../core/Common');
      * @private
      * @param {} regionA
      * @param {} regionB
+     * @param {} region existing region to fill
      * @return {} region
      */
-    var _regionUnion = function(regionA, regionB) {
+    var _regionUnion = function(regionA, regionB, region) {
+        region = region || {};
         var startCol = Math.min(regionA.startCol, regionB.startCol),
             endCol = Math.max(regionA.endCol, regionB.endCol),
             startRow = Math.min(regionA.startRow, regionB.startRow),
             endRow = Math.max(regionA.endRow, regionB.endRow);
 
-        return _createRegion(startCol, endCol, startRow, endRow);
+        return _createRegion(startCol, endCol, startRow, endRow, region);
     };
 
     /**
@@ -2326,16 +2328,18 @@ var Common = _dereq_('../core/Common');
      * @private
      * @param {} grid
      * @param {} body
+     * @param {} region existing region to fill
      * @return {} region
      */
-    var _getRegion = function(grid, body) {
+    var _getRegion = function(grid, body, region) {
+        region = region || {};
         var bounds = body.bounds,
             startCol = Math.floor(bounds.min.x / grid.bucketWidth),
             endCol = Math.floor(bounds.max.x / grid.bucketWidth),
             startRow = Math.floor(bounds.min.y / grid.bucketHeight),
             endRow = Math.floor(bounds.max.y / grid.bucketHeight);
 
-        return _createRegion(startCol, endCol, startRow, endRow);
+        return _createRegion(startCol, endCol, startRow, endRow, region);
     };
 
     /**
@@ -2346,41 +2350,17 @@ var Common = _dereq_('../core/Common');
      * @param {} endCol
      * @param {} startRow
      * @param {} endRow
+     * @param {} region existing region to fill
      * @return {} region
      */
-    var _createRegion = function(startCol, endCol, startRow, endRow) {
-        return { 
-            id: startCol + ',' + endCol + ',' + startRow + ',' + endRow,
-            startCol: startCol, 
-            endCol: endCol, 
-            startRow: startRow, 
-            endRow: endRow 
-        };
-    };
-
-    /**
-     * Gets the bucket id at the given position.
-     * @method _getBucketId
-     * @private
-     * @param {} column
-     * @param {} row
-     * @return {string} bucket id
-     */
-    var _getBucketId = function(column, row) {
-        return 'C' + column + 'R' + row;
-    };
-
-    /**
-     * Creates a bucket.
-     * @method _createBucket
-     * @private
-     * @param {} buckets
-     * @param {} bucketId
-     * @return {} bucket
-     */
-    var _createBucket = function(buckets, bucketId) {
-        var bucket = buckets[bucketId] = [];
-        return bucket;
+    var _createRegion = function(startCol, endCol, startRow, endRow, region) {
+        region = region || {};
+        region.id = startCol + ',' + endCol + ',' + startRow + ',' + endRow;
+        region.startCol = startCol;
+        region.endCol = endCol;
+        region.startRow = startRow;
+        region.endRow = endRow;
+        return region;
     };
 
     /**
@@ -2393,7 +2373,7 @@ var Common = _dereq_('../core/Common');
      */
     var _bucketAddBody = function(grid, bucket, body) {
         // add new pairs
-        for (var i = 0; i < bucket.length; i++) {
+        for (var i = 0, iLen = bucket.length; i < iLen; i++) {
             var bodyB = bucket[i];
 
             if (body.id === bodyB.id || (body.isStatic && bodyB.isStatic))
@@ -2428,7 +2408,7 @@ var Common = _dereq_('../core/Common');
         bucket.splice(Common.indexOf(bucket, body), 1);
 
         // update pair counts
-        for (var i = 0; i < bucket.length; i++) {
+        for (var i = 0, iLen = bucket.length; i < iLen; i++) {
             // keep track of the number of buckets the pair exists in
             // important for _createActivePairsList to work
             var bodyB = bucket[i],
@@ -2456,7 +2436,7 @@ var Common = _dereq_('../core/Common');
         pairKeys = Common.keys(grid.pairs);
 
         // iterate over grid.pairs
-        for (var k = 0; k < pairKeys.length; k++) {
+        for (var k = 0, kLen = pairKeys.length; k < kLen; k++) {
             pair = grid.pairs[pairKeys[k]];
 
             // if pair exists in at least one bucket
@@ -4388,6 +4368,10 @@ module.exports = Common;
      * @return {boolean} True if the object is a HTMLElement, otherwise false
      */
     Common.isElement = function(obj) {
+        //webworker check
+        if (typeof HTMLElement === 'undefined') {
+            return false;
+        }
         return obj instanceof HTMLElement;
     };
 
@@ -4464,11 +4448,12 @@ module.exports = Common;
      * @return {number} the current timestamp
      */
     Common.now = function() {
-        if (window.performance) {
-            if (window.performance.now) {
-                return window.performance.now();
-            } else if (window.performance.webkitNow) {
-                return window.performance.webkitNow();
+        //not prefixing with window so webwork still works
+        if (performance) {
+            if (performance.now) {
+                return performance.now();
+            } else if (performance.webkitNow) {
+                return performance.webkitNow();
             }
         }
 
