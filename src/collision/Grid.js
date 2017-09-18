@@ -84,7 +84,7 @@ var Common = require('../core/Common');
                 || body.bounds.max.y < world.bounds.min.y || body.bounds.min.y > world.bounds.max.y)
                 continue;
 
-            newRegion = _getRegion(grid, body, newRegion);
+            newRegion = _getRegion(grid, body);
 
             // if the body has changed grid region
             if (!body.region || newRegion.id !== body.region.id || forceUpdate) {
@@ -96,7 +96,7 @@ var Common = require('../core/Common');
                 if (!body.region || forceUpdate)
                     body.region = newRegion;
 
-                var union = _regionUnion(newRegion, body.region, newRegion);
+                var union = _regionUnion(newRegion, body.region);
 
                 // update grid buckets affected by region change
                 // iterate over the union of both regions
@@ -119,7 +119,7 @@ var Common = require('../core/Common');
                         // add to new region buckets
                         if (body.region === newRegion || (isInsideNewRegion && !isInsideOldRegion) || forceUpdate) {
                             if (!bucket){
-                                bucket = _createBucket(buckets, bucketId);
+                                bucket = buckets[bucketId] = [];
                             }
                             _bucketAddBody(grid, bucket, body);
                         }
@@ -208,19 +208,6 @@ var Common = require('../core/Common');
         region.startRow = startRow;
         region.endRow = endRow;
         return region;
-    };
-
-    /**
-     * Creates a bucket.
-     * @method _createBucket
-     * @private
-     * @param {} buckets
-     * @param {} bucketId
-     * @return {} bucket
-     */
-    var _createBucket = function(buckets, bucketId) {
-        var bucket = buckets[bucketId] = [];
-        return bucket;
     };
 
     /**
